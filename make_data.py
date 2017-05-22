@@ -18,7 +18,7 @@ def read_entries(filepath):
 
 def main(datadir, outdir, tmpdir):
     jsonfile = os.path.join(outdir, 'timit.json')
-    mat5file = os.path.join(outdir, 'timit.mat')
+    matfile = os.path.join(outdir, 'timit.mat')
     entries = list()
     wavearrays = dict()
 
@@ -29,7 +29,7 @@ def main(datadir, outdir, tmpdir):
         for drx in os.listdir(splitdir):
             speakers = os.listdir(os.path.join(splitdir, drx))
             for speaker in speakers:
-                all_content = os.listdir(os.path.join(splitdir, drx))
+                all_content = os.listdir(os.path.join(splitdir, drx, speaker))
                 wavfiles, phnfiles, wrdfiles, txtfiles = map(
                     lambda x: filter(lambda y: str.endswith(y,x), all_content),
                     ('wav','phn','wrd','txt'))
@@ -39,12 +39,13 @@ def main(datadir, outdir, tmpdir):
                 txtfiles.sort()
 
                 samples = map(lambda x: os.path.splitext(x)[0], wavfiles)
-                for i in range(length(samples)):
+                for i in range(len(samples)):
                     sample = samples[i]
+
                     # some validation
                     ns =  []
-                    wavfile = wavfiles[i]
-                    ns.append(os.path.splitext(wavfile)[0])
+                    wavfilei = wavfiles[i]
+                    ns.append(os.path.splitext(wavfilei)[0])
 
                     phnfile = phnfiles[i]
                     ns.append(os.path.splitext(phnfile)[0])
@@ -60,8 +61,8 @@ def main(datadir, outdir, tmpdir):
                             raise "Validation error in data processing"
 
                     # run sox, so we will be able to read TIMIT sample
-                    source = os.path.join(splitdir, drx, speaker, wavfile)
-                    target = os.path.join(tmpdir, wavfile)
+                    source = os.path.join(splitdir, drx, speaker, wavfilei)
+                    target = os.path.join(tmpdir, wavfilei)
                     command = "sox {} {}".format(source, target)
                     os.system(command)
 
@@ -100,6 +101,9 @@ def main(datadir, outdir, tmpdir):
                     entries.append(entry)
                     wavearrays[longid] = wavdata
 
+                    if sid % 100 == 0:
+                        print '{} instances processed so far...'.format(sid)
+
                     sid += 1
                     splitid += 1
 
@@ -110,7 +114,7 @@ def main(datadir, outdir, tmpdir):
     f.write(jsondata)
     f.close()
 
-if __name__ == "__MAIN__":
+if __name__ == "__main__":
     # argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument("--datadir", required=True, type=str)
@@ -128,7 +132,7 @@ if __name__ == "__MAIN__":
     if not os.path.exists(outdir):
         raise "Output path does not exist."
 
-    if not os.path.exits(tmpdir):
+    if not os.path.exists(tmpdir):
         raise "Temperorary path does not exist."
 
     main(datadir, outdir, tmpdir)
