@@ -83,6 +83,7 @@ function main(args)
     end
 end
 
+# TODO: implement this function
 function initweights(atype, hidden, xsize, ysize)
 
 end

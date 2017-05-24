@@ -13,3 +13,18 @@ function build_vocab(entries)
     end
     return p2i, i2p
 end
+
+# TODO: implement this function
+function make_input(samples)
+end
+
+# TODO: implement this function
+function make_output(samples)
+end
+
+# feature extractor
+function mfsc(arr, sr=16000.0)
+    feacalc(
+        xx; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:ddelta,
+        dcttype=-1, sr=sr)
+end
