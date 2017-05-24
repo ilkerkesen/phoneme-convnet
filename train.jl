@@ -4,6 +4,8 @@ using JSON
 using MAT
 using JLD
 
+include("util.jl")
+
 function main(args)
     s = ArgParseSettings()
     s.description = "CNN-HMM hybrid ASR system in Knet by Ilker Kesen."
@@ -28,7 +30,15 @@ function main(args)
     sr = o[:seed] > 0 ? srand(o[:seed]) : srand()
 
     # load data
-    # TODO: nothing yet!
+    jsondata = JSON.parsefile(abspath(o[:jsonfile]))
+    filext = splitext(o[:features])[end]
+    loadfun = filext == "mat" ? matread : load
+    features = loadfun(o[:features])
+
+    # build up vocabulary
+    p2i, i2p = build_vocab(jsondata)
+
+    # TODO: data loading
     trn = val = nothing
 
     # load model
@@ -73,7 +83,8 @@ function main(args)
     end
 end
 
-function initweights()
+function initweights(atype, hidden, xsize, ysize)
+
 end
 
 function predict(w,x; o=Dict())

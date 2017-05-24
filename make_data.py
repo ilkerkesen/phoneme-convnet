@@ -85,12 +85,15 @@ def main(datadir, outdir, tmpdir):
                     sentence = read_entries(filepath)[0]
 
                     # sample id
-                    longid = "{}-{}-{}".format(drx, speaker, sample)
+                    longid = "{}-{}-{}-{}".format(split, drx, speaker, sample)
 
                     entry = {
                         'sid': sid,
+                        'drx': drx,
+                        'speaker': speaker,
                         'splitid': splitid,
-                        'sample': longid,
+                        'sample': sample,
+                        'longid': longid,
                         'split': split,
                         'srate': srate,
                         'sentence': sentence,
