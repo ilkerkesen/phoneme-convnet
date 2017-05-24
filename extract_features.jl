@@ -3,6 +3,9 @@ using JLD
 using MAT
 using JSON
 using HDF5
+using MFCC
+
+include("util.jl")
 
 function main(args)
     s = ArgParseSettings()
@@ -13,25 +16,30 @@ function main(args)
         ("--jsonfile"; required=true)
         ("--savefile"; required=true)
         ("--sr"; default=16000.0; arg_type=Float64)
+        ("--preprocess"; action=:store_true)
+        ("--period"; default=100; arg_type=Int64)
     end
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true); println(o); flush(STDOUT)
-    o[:atype] = eval(parse(o[:atype]))
 
     # load mat file
     data = matread(o[:matfile])
     entries = JSON.parsefile(o[:jsonfile])
-    file = h5open(o[:savefile], "w")
+    savefile = h5open(o[:savefile], "w")
 
     println("started.", now())
-    @time for entry in entries
+    @time for (i,entry) in enumerate(entries)
         longid = entry["longid"]
         sample = data[longid]
-        feats = mfsc(sample, o[:sr])
-        write(file, longid, feats)
+        feats = mfsc(sample)
+        write(savefile, longid, feats[1])
+
+        if i % o[:period] == 0
+            println("$i samples processed so far...")
+        end
     end
-    close(file)
+    close(savefile)
     println("done.")
 end
 

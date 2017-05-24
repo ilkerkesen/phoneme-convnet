@@ -1,5 +1,4 @@
 function build_vocab(entries)
-    # trn = filter(ei->ei["split"]=="train", entries)
     c = 1
     p2i, i2p = Dict(), Dict()
     for sample in train
@@ -22,9 +21,17 @@ end
 function make_output(samples)
 end
 
+
+
 # feature extractor
-function mfsc(arr, sr=16000.0)
+function mfsc(arr; sr=16000.0, preprocess=true)
+    if preprocess
+        nch = 1
+        ns = div(length(arr), nch)
+        arr = reshape(arr, nch, ns)' / (1<<15)
+    end
+
     feacalc(
-        xx; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:ddelta,
+        arr; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:ddelta,
         dcttype=-1, sr=sr)
 end
