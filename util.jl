@@ -31,11 +31,11 @@ function build_phoneme_vocab(entries)
 end
 
 # separate vocabulary builder
-function build_word_vocab(entries)
+function build_vocab(entries; kk="phonemes")
     c = 1
     w2i, i2w = Dict(), Dict()
     for sample in entries
-        words = sample["words"]
+        words = sample[kk]
         for (_,_,w) in words
             if !haskey(w2i, w)
                 w2i[w] = c
@@ -47,13 +47,12 @@ function build_word_vocab(entries)
     return w2i, i2w
 end
 
-# TODO: implement this function
 function make_input(samples)
-
+    return cat(4, map(si->si[1], samples)...)
 end
 
-# TODO: implement this function
-function make_output(samples)
+function make_output(samples, p2i)
+    return map(s->p2i[s[2]], samples)
 end
 
 # feature extractor
@@ -83,20 +82,22 @@ function make_data(
     i = 0
     for sample in samples
         feature = features[sample["longid"]]'
-        i+=1; info("i=$i")
-
+        # i+=1; info("i=$i")
+        ss = []
         for (ti,tf,phn) in sample["phonemes"]
             ll = div(nframes-1,2)
-            ff = zeros(size(feature,1), size(feature,2)+2*ll)
-            ff[:,1+ll:end-ll] = feature
+            ff = zeros(size(feature,1), size(feature,2)+2*ll+1)
+            ff[:,1+ll:end-1-ll] = feature
 
             ti0 = Int(round(ti/(sr/100)))
             tf0 = Int(round(tf/(sr/100)))
             tm = div(tf0-ti0,2)+ti0
             ll = div((nframes-1),2)
 
-            push!(data, (ff[tm:tm+2ll],phn))
+            # @show ti0,tf0,tm,ll,size(ff)
+            push!(ss, (reshape(ff[:,tm:tm+2ll],40,1,nframes*3,1), phn))
         end
+        push!(data, ss)
     end
 
     return data

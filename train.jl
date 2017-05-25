@@ -22,7 +22,7 @@ function main(args)
         ("--optim"; default="Adam(;gclip=5.0)")
         ("--pdrop"; default=0.0; arg_type=Float64)
         ("--seed"; default=-1; arg_type=Int64)
-        ("--nvalid"; default=10000; arg_type=Int64)
+        ("--nvalid"; default=200; arg_type=Int64)
     end
 
     isa(args, AbstractString) && (args=split(args))
@@ -32,19 +32,21 @@ function main(args)
 
     # load data
     jsondata = JSON.parsefile(abspath(o[:jsonfile]))
-    filext = splitext(o[:features])[end]
 
     # TODO: data loading
+    p2i, i2p = build_vocab(jsondata)
     trn = make_data(o[:features], jsondata, "train")
     shuffle!(trn)
     val = []
     for k = 1:o[:nvalid]
         push!(val, pop!(trn))
     end
+    trn = reduce(vcat, trn)
+    val = reduce(vcat, val)
 
     # load model
     w = opts = bestacc = nothing
-    if o[:loafile] == nothing
+    if o[:loadfile] == nothing
         w = initweights(o[:atype], o[:hidden])
         bestacc = -Inf
     else
@@ -54,23 +56,24 @@ function main(args)
     opts = map(wi->eval(parse(o[:optim])), w)
 
     bestacc = -Inf
+    println("training has been started. ", now())
     for epoch = 1:o[:epochs]
         # shuffle train data
         shuffle!(trn)
 
         # one epoch training
         losstrn = 0
-        for k = 1:o[:batchsize]:length(trn)
-            samples = trn[k:min(length(trn),k+batchsize-1)]
+        @time for k = 1:o[:batchsize]:length(trn)
+            samples = trn[k:min(length(trn),k+o[:batchsize]-1)]
             x = make_input(samples)
             ygold = make_output(samples,p2i)
-            this_loss = train!(w,x,ygold,opts;o=o)
+            this_loss = train!(w,convert(o[:atype],x),ygold,opts;o=o)
             losstrn += this_loss
         end
         losstrn = losstrn / length(trn)
 
         # compute validation loss and accuracy
-        lossval, acc = validate(w,val)
+        @time lossval, acc = validate(w,val,p2i; o=o)
 
         # report and save
         print("(epoch:$epoch,losstrn:$losstrn,lossval:$lossval,acc:$acc) ")
@@ -85,33 +88,55 @@ function main(args)
 end
 
 # TODO: implement this function
-function initweights(atype, hidden, xsize, ysize)
-
+function initweights(atype, hidden, ysize=61)
+    w = []
+    push!(w, xavier(8,1,45,150))
+    push!(w, zeros(1,1,150,1))
+    push!(w, xavier(6,1,150,300))
+    push!(w, zeros(1,1,300,1))
+    push!(w, xavier(1000,1500))
+    push!(w, zeros(1000,1))
+    push!(w, xavier(1000,1000))
+    push!(w, zeros(1000,1))
+    push!(w, xavier(ysize,1000))
+    push!(w,  zeros(ysize,1))
+    return map(wi->convert(atype,wi), w)
 end
 
 function predict(w,x; o=Dict())
-    for i = 1:2:length(w)-4
-        x = conv4(w[i],x) .+ w[i+1]
-        x = relu(x)
-        x = pool(x)
-    end
+    # conv1
+    x = conv4(w[1],x; padding=0) .+ w[2]
+    x = relu(x)
+    x = pool(x; window=(4,1), stride=(2,1))
 
-    x = relu(w[end-3] * mat(x) .+ w[end-2])
+    # conv2
+    x = conv4(w[3],x; padding=0) .+ w[4]
+    x = relu(x)
+    x = pool(x; window=(2,1), stride=(2,1))
+
+
+    # mlp
+    x = relu(w[5] * mat(x) .+ w[6])
     x = dropout(x,get(o, :pdrop, 0.0))
+    x = relu(w[7] * x .+ w[8])
+    x = dropout(x,get(o, :pdrop, 0.0))
+
+    # softmax
     x = w[end-1] * x .+ w[end]
 end
 
 function train!(w,x,y,opts; o=Dict())
     values = []
     g = lossgradient(w,x,y; o=o, values=values)
-    update!(w,g,opt)
+    update!(w,g,opts)
     lossval = values[1]
     return lossval
 end
 
 function loss(w, x, ygold; o=Dict(), values=[])
-    ypred = predict(w, x)
+    ypred = predict(w, x; o=o)
     lossval = -logprob(ygold,ypred)
+    push!(values, lossval)
     return lossval / length(ygold)
 end
 
@@ -124,6 +149,27 @@ function logprob(output, ypred)
     o2 = o1[index]
     o3 = sum(o2)
     return o3
+end
+
+function validate(w,val,p2i; o=Dict())
+    batchsize = get(o, :batchsize, 100)
+    lossval = losscnt = ncorrect = 0
+    atype = get(o, :atype, gpu()>=0?KnetArray{Float32}:Array{Float32})
+    for k = 1:batchsize:length(val)
+        lower = k
+        upper = min(length(val), k+batchsize-1)
+
+        x = make_input(val[lower:upper])
+        y = make_output(val[lower:upper], p2i)
+
+        ypred = predict(w,convert(atype, x))
+        lossval += -logprob(y,ypred)
+        nrows,ncols = size(ypred)
+        index = y + nrows*(0:(length(y)-1))
+        ncorrect += sum(maximum(ypred,1).== ypred[index])
+        losscnt += ncols
+    end
+    return lossval/losscnt, ncorrect/losscnt
 end
 
 !isinteractive() && !isdefined(Core.Main, :load_only) && main(ARGS)
