@@ -26,20 +26,23 @@ function main(args)
     # load mat file
     data = matread(o[:matfile])
     entries = JSON.parsefile(o[:jsonfile])
-    savefile = h5open(o[:savefile], "w")
+    # savefile = h5open(o[:savefile], "w")
 
     println("started.", now())
+    features = Dict()
     @time for (i,entry) in enumerate(entries)
         longid = entry["longid"]
         sample = data[longid]
         feats = mfsc(sample)
-        write(savefile, longid, feats[1])
+        features[longid] = feats[1]
+        # write(savefile, longid, feats[1])
 
         if i % o[:period] == 0
             println("$i samples processed so far...")
         end
     end
-    close(savefile)
+    # close(savefile)
+    save(o[:savefile], "features", features)
     println("done.")
 end
 

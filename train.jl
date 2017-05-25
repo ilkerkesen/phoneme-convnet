@@ -22,6 +22,7 @@ function main(args)
         ("--optim"; default="Adam(;gclip=5.0)")
         ("--pdrop"; default=0.0; arg_type=Float64)
         ("--seed"; default=-1; arg_type=Int64)
+        ("--nvalid"; default=10000; arg_type=Int64)
     end
 
     isa(args, AbstractString) && (args=split(args))
@@ -32,14 +33,14 @@ function main(args)
     # load data
     jsondata = JSON.parsefile(abspath(o[:jsonfile]))
     filext = splitext(o[:features])[end]
-    loadfun = filext == "mat" ? matread : load
-    features = loadfun(o[:features])
-
-    # build up vocabulary
-    p2i, i2p = build_vocab(jsondata)
 
     # TODO: data loading
-    trn = val = nothing
+    trn = make_data(o[:features], jsondata, "train")
+    shuffle!(trn)
+    val = []
+    for k = 1:o[:nvalid]
+        push!(val, pop!(trn))
+    end
 
     # load model
     w = opts = bestacc = nothing
@@ -62,7 +63,7 @@ function main(args)
         for k = 1:o[:batchsize]:length(trn)
             samples = trn[k:min(length(trn),k+batchsize-1)]
             x = make_input(samples)
-            ygold = make_output(samples)
+            ygold = make_output(samples,p2i)
             this_loss = train!(w,x,ygold,opts;o=o)
             losstrn += this_loss
         end
