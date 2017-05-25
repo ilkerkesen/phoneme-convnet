@@ -61,6 +61,13 @@ function logprob(output, ypred)
     return o3
 end
 
+function softmax(y0)
+    y1 = maximum(y0,1)
+    y2 = y0 .- y1
+    y3 = exp(y2)
+    y4 = y3 ./ sum(y3,1)
+end
+
 function validate(w,val,p2i; o=Dict())
     batchsize = get(o, :batchsize, 100)
     lossval = losscnt = ncorrect = 0
@@ -80,4 +87,43 @@ function validate(w,val,p2i; o=Dict())
         losscnt += ncols
     end
     return lossval/losscnt, ncorrect/losscnt
+end
+
+function viterbi(ynorm, posteriors)
+    ynorm = log(ynorm)
+    posteriors = log(posteriors) # transitions
+    timesteps = size(ynorm,2)
+    x0 = ynorm[:,1]
+
+    prev = []
+    next = []
+    for k = 1:length(x0)
+        push!(prev, [x0[k], []])
+        push!(next, [-Inf, []])
+    end
+
+    # log prob, path
+    for t = 2:timesteps
+        for i = 1:size(ynorm,1) # onceki
+            for j = 1:size(ynorm,1) # sonraki
+                this_logprob = posteriors[i,j] + prev[i][1]
+                if this_logprob > next[j][1]
+                    next[j][1] = this_logprob
+                    next[j][2] = [prev[i][2]..., j]
+                end
+            end
+        end
+
+        for k = 1:length(x0)
+            prev[k][1] = next[k][1]
+            prev[k][2] = copy(next[k][2])
+            next[k][1] = -Inf
+            empty!(next[k][2])
+            gc()
+        end
+    end
+
+    probs = map(ni->ni[1], next)
+    el = indmax(probs)
+    return ni[el]
 end

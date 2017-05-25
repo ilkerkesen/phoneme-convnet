@@ -71,7 +71,7 @@ end
 # read features arrays from hdf5 file
 function make_data(
     filepath, entries, split="train";
-    remove_sa1=true, nframes=15, sr=16000.0, triphones=true)
+    remove_sa1=true, nframes=15, sr=16000.0, triphones=true, extra=[])
     samples = filter(ei->ei["split"]==split, entries)
     if remove_sa1
         samples = filter(si->si["sample"] != "sa1", samples)
@@ -116,6 +116,7 @@ function make_data(
         #     push!(ss, (reshape(ff[:,tm:tm+2ll],40,1,nframes*3,1), phn))
         # end
         push!(data, ss)
+        push!(extra, sample["longid"])
     end
 
     return data
