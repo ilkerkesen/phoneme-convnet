@@ -24,6 +24,7 @@ function main(args)
         ("--pdrop"; default=0.0; arg_type=Float64)
         ("--seed"; default=-1; arg_type=Int64)
         ("--nvalid"; default=200; arg_type=Int64)
+        ("--generate"; action=:store_true)
     end
 
     isa(args, AbstractString) && (args=split(args))
@@ -53,8 +54,16 @@ function main(args)
     else
         w = load(o[:loadfile], "w")
         bestacc = load(o[:loadfile], "acc")
+        w = map(wi->convert(o[:atype],wi), w)
     end
     opts = map(wi->eval(parse(o[:optim])), w)
+
+    if o[:generate]
+        tst = make_data(o[:features], jsondata, "test")
+        tst = reduce(vcat, tst)
+        @time lossval, acc = validate(w,val,p2i; o=o)
+        println("lossval:$lossval,acc:$acc")
+    end
 
     bestacc = -Inf
     println("training has been started. ", now())

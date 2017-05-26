@@ -13,17 +13,17 @@ function main(args)
         ("--features"; required=true; help="MFSC features file")
         ("--jsonfile"; required=true)
         ("--model"; default=nothing)
-        ("--probs"; default=nothing)
         ("--savefile"; default=nothing)
-        ("--batchsize"; default=400; arg_type=Int64)
         ("--atype"; default=(gpu()>=0?"KnetArray{Float32}":"Array{Float32}"))
-        ("--period"; default=100; arg_type=Int64)
+        ("--window"; default=10; arg_type=Int64)
+        ("--period"; default=20; arg_type=Int64)
     end
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true); println(o); flush(STDOUT)
     o[:atype] = eval(parse(o[:atype]))
     atype = o[:atype]
+    # sr = o[:seed] > 0 ? srand(o[:seed]) : srand()
 
     # load data
     jsondata = JSON.parsefile(o[:jsonfile])
@@ -35,38 +35,32 @@ function main(args)
     tst = make_data(o[:features], jsondata, "test"; extra=tstids)
 
     # load model
-    posteriors = load(o[:probs], "posteriors")
-    priors = load(o[:probs], "priors")
     w = load(o[:model], "w")
 
     # convert atype
-    # posteriors = convert(atype, posteriors)
-    priors = convert(atype, priors)
     w = map(wi->convert(atype,wi), w)
 
     solutions = Dict()
-    # @time for (split,data) in zip(("train","test"),(trn,tst))
-    #  getid(i) = split=="train"?trnids[i]:tstids[i]
+
     data = tst
     getid(i) = tstids[i]
     for (i,sample) in enumerate(data)
         x = make_input(sample)
-        ygold = make_output(sample, p2i)
+        # ygold = make_output(sample, p2i)
+        ygold = map(si->si[2], sample)
+        ygold = make_ygold(ygold)
         ypred = predict(w,convert(atype,x))
         ysoft = softmax(ypred)
-        ynorm = ysoft ./ priors # acoustic model
-        ynorm = Array(ynorm)
 
-        # viterbi
-        prob, track = viterbi(ynorm,posteriors)
-        solutions[getid(i)] = Dict("logprob"=>prob,"states"=>map(t->i2p[t], track))
+        generation = generate(ysoft, o[:window])
+        generation = map(t->i2p[t], generation)
+        solutions[getid(i)] = Dict("ygold"=>ygold, "ypred"=>generation)
 
-        println("$i generation so far.")
+        # println("$i generation so far.")
         if i % o[:period] == 0
             println("$i generation so far ", now())
         end
     end
-    # end
 
     ff = open(abspath(o[:savefile]), "w")
     write(ff, JSON.json(solutions))

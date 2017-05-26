@@ -89,11 +89,13 @@ function validate(w,val,p2i; o=Dict())
     return lossval/losscnt, ncorrect/losscnt
 end
 
-function viterbi(ynorm, posteriors)
+function viterbi(ynorm, posteriors; stamp=5)
     ynorm = log(ynorm)
     posteriors = log(posteriors) # transitions
     timesteps = size(ynorm,2)
     x0 = ynorm[:,1]
+
+
 
     prev = []
     next = []
@@ -103,10 +105,11 @@ function viterbi(ynorm, posteriors)
     end
 
     # log prob, path
-    for t = 2:timesteps
+    for t = 2:stamp:timesteps
+        info("time=$t")
         for i = 1:size(ynorm,1) # onceki
             for j = 1:size(ynorm,1) # sonraki
-                this_logprob = posteriors[i,j] + prev[i][1]
+                this_logprob = posteriors[i,j] + ynorm[j,t] + prev[i][1]
                 if this_logprob > next[j][1]
                     next[j][1] = this_logprob
                     next[j][2] = [prev[i][2]..., j]
@@ -125,5 +128,5 @@ function viterbi(ynorm, posteriors)
 
     probs = map(ni->ni[1], next)
     el = indmax(probs)
-    return ni[el]
+    return next[el]
 end

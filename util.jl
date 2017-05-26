@@ -166,3 +166,35 @@ function get_probabilities(jsondata, p2i, i2p; sr=16000.0)
 
     return posteriors, priors
 end
+
+function generate(ysoft, wlen)
+    inds = mapslices(indmax, Array(ysoft), 1)
+    candidate = []
+    for k = 1:wlen:length(inds)
+        arr = inds[k:min(length(inds),k+wlen-1)]
+        mydict = Dict()
+        for i = 1:length(arr)
+            mydict[arr[i]] = get(mydict, arr[i], 0) + 1
+        end
+        myarr = [(k,v) for (k,v) in mydict]
+        sort!(myarr, by=x->x[2], rev=true)
+        push!(candidate, myarr[1][1])
+    end
+    res = []
+    push!(res, pop!(candidate))
+    while !isempty(candidate)
+        el = shift!(candidate)
+        el != res[end] && push!(res, el)
+    end
+    return res
+end
+
+function make_ygold(fake)
+    ygold = [fake[1]]
+    for k = 2:length(fake)
+        if ygold[end] != fake[k]
+            push!(ygold, fake[k])
+        end
+    end
+    return ygold
+end
