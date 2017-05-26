@@ -10,6 +10,16 @@ function initweights(atype, hidden, ysize=61)
     push!(w, zeros(1000,1))
     push!(w, xavier(ysize,1000))
     push!(w,  zeros(ysize,1))
+
+    # push!(w, xavier(8,1,45,360))
+    # push!(w, zeros(1,1,360,1))
+    # push!(w, xavier(1000,5040))
+    # push!(w, xavier(1000,1))
+    # push!(w, xavier(1000,1000))
+    # push!(w, xavier(1000,1))
+    # push!(w, xavier(ysize,1000))
+    # push!(w,  zeros(ysize,1))
+
     return map(wi->convert(atype,wi), w)
 end
 
@@ -24,11 +34,15 @@ function predict(w,x; o=Dict())
     x = sigm(x)
     x = pool(x; window=(2,1), stride=(2,1))
 
+    # # # conv1
+    # x = conv4(w[1],x; padding=0) .+ w[2]
+    # x = sigm(x)
+    # x = pool(x; window=(6,1), stride=(2,1))
 
     # mlp
-    x = sigm(w[5] * mat(x) .+ w[6])
+    x = sigm(w[end-5] * mat(x) .+ w[end-4])
     x = dropout(x,get(o, :pdrop, 0.0))
-    x = sigm(w[7] * x .+ w[8])
+    x = sigm(w[end-3] * x .+ w[end-2])
     x = dropout(x,get(o, :pdrop, 0.0))
 
     # softmax

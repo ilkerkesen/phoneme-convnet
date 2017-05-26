@@ -61,8 +61,9 @@ function main(args)
     if o[:generate]
         tst = make_data(o[:features], jsondata, "test")
         tst = reduce(vcat, tst)
-        @time lossval, acc = validate(w,val,p2i; o=o)
+        @time lossval, acc = validate(w,val,p2i)
         println("lossval:$lossval,acc:$acc")
+        return
     end
 
     bestacc = -Inf
